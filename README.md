@@ -16,6 +16,30 @@ Artifacts land in `artifacts/`: `model.joblib`, `metadata.json`, `metrics.json`,
 
 Run the tests and the linter with `pytest` and `ruff check .`.
 
+## API
+
+After training, start the service (access logs are disabled because the app already emits
+one structured JSON log line per request):
+
+```bash
+uvicorn spam_detector.api:app --port 8000 --no-access-log
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" \
+  -d '{"text": "WINNER! Claim your free prize now, text WIN to 80082"}'
+# {"label":"spam","spam_probability":0.979,"threshold":0.5,"model_version":"..."}
+
+curl http://127.0.0.1:8000/health
+# {"status":"ok","model_loaded":true,"model_version":"..."}
+```
+
+- `POST /predict` validates input (non-blank text, max 1,000 chars; otherwise `422`).
+- `GET /health` returns `503` if the model could not be loaded, so an orchestrator can
+  see the instance is unhealthy.
+- Logs are JSON on stdout. Message text is never logged (it may contain personal data);
+  only its length and the predicted probability are.
+
 ## Model
 
 - **Data:** [SMS Spam Collection (UCI)](https://archive.ics.uci.edu/dataset/228/sms+spam+collection),

@@ -33,3 +33,7 @@ def save_artifact(pipeline: Pipeline, metadata: dict, out_dir: Path) -> None:
 
 def load_artifact(directory: Path) -> Pipeline:
     return joblib.load(directory / MODEL_FILE)
+
+
+def load_metadata(directory: Path) -> dict:
+    return json.loads((directory / METADATA_FILE).read_text(encoding="utf-8"))
