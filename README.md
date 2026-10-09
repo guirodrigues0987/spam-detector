@@ -30,6 +30,17 @@ container runs as a non-root user, with a read-only filesystem, all Linux capabi
 and a `HEALTHCHECK` on `/health`. The API is then available on `http://127.0.0.1:8000`.
 Tunable at runtime through `SPAM_THRESHOLD` and `LOG_LEVEL` (see `.env.example`).
 
+### Prebuilt image
+
+Every push to `main` that passes CI publishes the image to GitHub Container Registry, so
+nothing needs to be built locally:
+
+```bash
+docker run --rm -p 8000:8000 ghcr.io/guirodrigues0987/spam-detector:latest
+```
+
+Images are tagged `latest` and with the commit SHA.
+
 ## API (without Docker)
 
 After training, start the service (access logs are disabled because the app already emits
