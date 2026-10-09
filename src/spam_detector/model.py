@@ -12,14 +12,31 @@ MODEL_FILE = "model.joblib"
 METADATA_FILE = "metadata.json"
 
 
-def build_pipeline(seed: int = 42) -> Pipeline:
-    """TF-IDF features + logistic regression, balanced for the rare spam class."""
+NGRAM_RANGES = {"word": (1, 2), "char_wb": (2, 5)}
+
+
+def build_pipeline(seed: int = 42, c: float = 1.0, analyzer: str = "word") -> Pipeline:
+    """TF-IDF features + logistic regression, balanced for the rare spam class.
+
+    The defaults are the baseline; `c` and `analyzer` ("word" or "char_wb") produce the
+    challenger models that the quality gate compares against it.
+    """
     return Pipeline(
         [
-            ("tfidf", TfidfVectorizer(lowercase=True, ngram_range=(1, 2), min_df=2)),
+            (
+                "tfidf",
+                TfidfVectorizer(
+                    lowercase=True,
+                    analyzer=analyzer,
+                    ngram_range=NGRAM_RANGES[analyzer],
+                    min_df=2,
+                ),
+            ),
             (
                 "clf",
-                LogisticRegression(class_weight="balanced", max_iter=1000, random_state=seed),
+                LogisticRegression(
+                    C=c, class_weight="balanced", max_iter=1000, random_state=seed
+                ),
             ),
         ]
     )

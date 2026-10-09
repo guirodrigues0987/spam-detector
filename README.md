@@ -100,3 +100,41 @@ decision threshold is **configurable** (`SPAM_THRESHOLD`, default 0.5) instead o
 Raising it trades recall for precision: at 0.7 the model produces 4 false positives instead of
 13, at the price of 11 more missed spam messages. The right value depends on the product, and
 the table above is what to look at when choosing it.
+
+## Retraining with a quality gate (MLflow)
+
+`scripts/retrain.py` trains a candidate, tracks it in MLflow and promotes it **only if it beats
+the current champion**. It needs the optional `mlops` extra, which is not installed in the
+production image: `pip install -e ".[mlops]"`.
+
+```bash
+python scripts/retrain.py                        # first run: becomes the champion
+python scripts/retrain.py --analyzer char_wb     # challenger: character n-grams
+mlflow ui --backend-store-uri sqlite:///mlflow.db    # browse runs and the model registry
+```
+
+- **Tracking:** every run logs parameters, metrics, the dataset SHA-256 and the git commit.
+- **Registry:** every candidate is registered as a model version, with a `gate` tag
+  (`promoted` / `rejected`) and the reason, so rejected attempts stay as an audit trail. The
+  `champion` alias marks the version that is served.
+- **Gate** (`src/spam_detector/promotion.py`): the candidate must improve PR-AUC by at least
+  0.002 *and* lose no more than 0.02 precision at the serving threshold, because a false
+  positive is the expensive error. The champion is re-scored on the same test split, so the
+  comparison is fair.
+- **Export:** the champion is written to `artifacts/`, which is what the API loads.
+
+Example run history on this dataset:
+
+| Run | PR-AUC | Precision | Gate |
+|-----|--------|-----------|------|
+| v1 baseline (word n-grams) | 0.9579 | 0.9023 | promoted (no champion yet) |
+| v2 `C=0.01` | 0.9365 | 0.8667 | rejected (PR-AUC -0.0214) |
+| v3 character n-grams | 0.9876 | 0.9612 | promoted (+0.0297) |
+| v4 character n-grams, `C=10` | 0.9887 | 0.9690 | rejected (+0.0011 < 0.002) |
+
+Known limitation: the Docker image still trains the word-n-gram baseline at build time
+(`scripts/train.py`), because the registry lives in a local SQLite file. Serving the registry
+champion from the image needs a shared tracking server, which is out of scope for a
+zero-cost setup. Also, comparing several candidates on one test set slightly inflates the
+winner's score; a production setup would select on a validation split and keep the test set
+for the final check.
