@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "httpx2>=2.0",
     "matplotlib>=3.8",
     "pytest>=8.0",
     "ruff>=0.5",

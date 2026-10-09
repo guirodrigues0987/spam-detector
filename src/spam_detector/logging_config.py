@@ -28,5 +28,7 @@ def configure_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
-    root.handlers = [handler]
+    # Replace only our own previous handler so repeated calls do not duplicate output.
+    root.handlers = [h for h in root.handlers if not isinstance(h.formatter, JsonFormatter)]
+    root.addHandler(handler)
     root.setLevel(level)

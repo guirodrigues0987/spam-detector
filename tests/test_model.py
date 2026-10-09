@@ -1,24 +1,26 @@
 import json
 
-from spam_detector.model import METADATA_FILE, build_pipeline, load_artifact, save_artifact
+import pytest
 
-TEXTS = [
-    "win a free prize now, claim your cash",
-    "free entry, text WIN to 80000 now",
-    "urgent: claim your free prize today",
-    "congratulations, you won free cash now",
-    "are we still meeting for lunch today",
-    "see you at home later tonight",
-    "can you call me when you get back",
-    "lunch today at noon, see you there",
-]
-LABELS = [1, 1, 1, 1, 0, 0, 0, 0]
+from spam_detector.model import METADATA_FILE, load_artifact, save_artifact
+from tests.conftest import fit_tiny_pipeline as fitted_pipeline
 
 
-def fitted_pipeline():
-    pipeline = build_pipeline(seed=0)
-    pipeline.set_params(tfidf__min_df=1)  # tiny corpus
-    return pipeline.fit(TEXTS, LABELS)
+def test_vectorizer_is_case_insensitive():
+    pipeline = fitted_pipeline()
+    lower = pipeline.predict_proba(["claim your free prize"])[0, 1]
+    upper = pipeline.predict_proba(["CLAIM YOUR FREE PRIZE"])[0, 1]
+    assert lower == pytest.approx(upper)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", " ", "😀😀😀", "ÀÇÃO não é spam", "12345 67890", "a" * 5000, "free\n\tprize\r\n"],
+)
+def test_pipeline_handles_unusual_inputs(text):
+    proba = fitted_pipeline().predict_proba([text])
+    assert proba.shape == (1, 2)
+    assert 0.0 <= proba[0, 1] <= 1.0
 
 
 def test_pipeline_predicts_probabilities_and_labels():
