@@ -29,7 +29,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     ARTIFACTS_DIR=/app/artifacts
 
-RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin appuser
+# uid 1000 is what Hugging Face Spaces runs containers as; still non-root.
+RUN useradd --system --uid 1000 --no-create-home --shell /usr/sbin/nologin appuser
 
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
