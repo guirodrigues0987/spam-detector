@@ -16,7 +16,19 @@ Artifacts land in `artifacts/`: `model.joblib`, `metadata.json`, `metrics.json`,
 
 Run the tests and the linter with `pytest` and `ruff check .`.
 
-## API
+## Run with Docker (one command)
+
+```bash
+docker compose up --build
+```
+
+The multi-stage image downloads the dataset (checksum-verified), trains the model in a build
+stage, and ships only the virtualenv and the trained artifact in a slim runtime image. The
+container runs as a non-root user, with a read-only filesystem, all Linux capabilities dropped
+and a `HEALTHCHECK` on `/health`. The API is then available on `http://127.0.0.1:8000`.
+Tunable at runtime through `SPAM_THRESHOLD` and `LOG_LEVEL` (see `.env.example`).
+
+## API (without Docker)
 
 After training, start the service (access logs are disabled because the app already emits
 one structured JSON log line per request):

@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    image: spam-detector:local
+    ports:
+      - "8000:8000"
+    environment:
+      SPAM_THRESHOLD: ${SPAM_THRESHOLD:-0.5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
