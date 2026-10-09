@@ -1,5 +1,7 @@
 # spam-detector
 
+[![CI](https://github.com/guirodrigues0987/spam-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/guirodrigues0987/spam-detector/actions/workflows/ci.yml)
+
 Production-grade SMS spam detection service. Work in progress: the model and evaluation
 are done; API, Docker, CI/CD, deploy, MLOps and monitoring are next.
 
