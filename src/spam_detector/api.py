@@ -1,4 +1,4 @@
-"""FastAPI application: /predict, /health and /metrics."""
+"""FastAPI application: /predict and /health (metrics live on a separate port)."""
 
 import logging
 import time
@@ -6,7 +6,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import start_http_server
 
 from spam_detector.config import Settings
 from spam_detector.features import text_features
@@ -17,8 +17,8 @@ from spam_detector.schemas import HealthResponse, PredictRequest, PredictRespons
 
 logger = logging.getLogger("spam_detector.api")
 
-# Probes and scrapes run every few seconds; logging them at INFO would drown real traffic.
-QUIET_PATHS = {"/health", "/metrics"}
+# Probes run every few seconds; logging them at INFO would drown real traffic.
+QUIET_PATHS = {"/health"}
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -30,6 +30,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.model = None
         app.state.model_version = None
+        app.state.metrics = metrics
+        app.state.metrics_server = None
+        if settings.metrics_port is not None:
+            app.state.metrics_server, _ = start_http_server(
+                settings.metrics_port, addr=settings.metrics_host, registry=metrics.registry
+            )
+            logger.info("metrics server started", extra={"metrics_port": settings.metrics_port})
         try:
             app.state.model = load_artifact(settings.artifacts_dir)
             app.state.model_version = load_metadata(settings.artifacts_dir)["trained_at"]
@@ -41,6 +48,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "failed to load model", extra={"artifacts_dir": str(settings.artifacts_dir)}
             )
         yield
+        if app.state.metrics_server is not None:
+            app.state.metrics_server.shutdown()
+            app.state.metrics_server.server_close()
 
     app = FastAPI(title="spam-detector", version="0.1.0", lifespan=lifespan)
 
@@ -55,9 +65,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Label by route template, never by raw URL, to keep metric cardinality bounded.
         route = request.scope.get("route")
         path = route.path if route else "unmatched"
-        if path != "/metrics":
-            metrics.requests.labels(request.method, path, response.status_code).inc()
-            metrics.latency.labels(request.method, path).observe(elapsed)
+        metrics.requests.labels(request.method, path, response.status_code).inc()
+        metrics.latency.labels(request.method, path).observe(elapsed)
 
         logger.log(
             logging.DEBUG if path in QUIET_PATHS else logging.INFO,
@@ -82,10 +91,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             model_loaded=loaded,
             model_version=request.app.state.model_version,
         )
-
-    @app.get("/metrics", include_in_schema=False)
-    def prometheus_metrics() -> Response:
-        return Response(generate_latest(metrics.registry), media_type=CONTENT_TYPE_LATEST)
 
     @app.post("/predict", response_model=PredictResponse)
     def predict(body: PredictRequest, request: Request) -> PredictResponse:

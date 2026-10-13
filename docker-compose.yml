@@ -7,6 +7,12 @@ services:
     environment:
       SPAM_THRESHOLD: ${SPAM_THRESHOLD:-0.5}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Metrics get their own port. It is only exposed to the compose network (never
+      # published to the host), which is how Prometheus reaches it.
+      METRICS_PORT: "9100"
+      METRICS_HOST: "0.0.0.0"
+    expose:
+      - "9100"
     restart: unless-stopped
     read_only: true
     cap_drop:
