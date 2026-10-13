@@ -150,13 +150,20 @@ docker compose --profile monitoring up --build
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| API | http://127.0.0.1:8000 | `/metrics` exposes Prometheus metrics |
+| API | http://127.0.0.1:8000 | public port; metrics are **not** served here |
 | Prometheus | http://127.0.0.1:9090 | scrapes the API every 15 s |
 | Grafana | http://127.0.0.1:3000 | dashboard **Spam Detector** is provisioned from files |
 
 All ports are bound to `127.0.0.1`. Grafana's login is `admin` / `admin` unless you set
 `GRAFANA_ADMIN_PASSWORD` in `.env` (see `.env.example`). Generate some traffic to see the
 dashboard move: `python scripts/simulate_traffic.py --n 300`.
+
+**Where metrics are served:** on their own port, not on the API's. Setting `METRICS_PORT`
+starts a Prometheus endpoint (`/metrics`) on it, bound to `METRICS_HOST` (default `127.0.0.1`);
+leaving it unset starts nothing. `docker-compose.yml` sets port 9100 and only exposes it to the
+compose network, so Prometheus can scrape `api:9100` but neither the host nor the internet can.
+A deploy that publishes a single port, like the Hugging Face Space, never exposes telemetry,
+and `/metrics` on the API port returns 404.
 
 **Metrics** (`src/spam_detector/metrics.py`): request count by route and status, latency
 histogram (for p50/p95/p99), predictions by class (the predicted spam rate), a histogram of

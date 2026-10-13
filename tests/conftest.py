@@ -36,8 +36,15 @@ def model_dir(tmp_path_factory):
     return path
 
 
-def make_client(artifacts_dir, threshold: float = 0.5) -> TestClient:
-    settings = Settings(artifacts_dir=artifacts_dir, spam_threshold=threshold, log_level="INFO")
+def make_client(
+    artifacts_dir, threshold: float = 0.5, metrics_port: int | None = None
+) -> TestClient:
+    settings = Settings(
+        artifacts_dir=artifacts_dir,
+        spam_threshold=threshold,
+        log_level="INFO",
+        metrics_port=metrics_port,
+    )
     return TestClient(create_app(settings))
 
 
