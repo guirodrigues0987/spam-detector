@@ -18,8 +18,11 @@ COPY src ./src
 RUN pip install .
 
 # Download the dataset (checksum-verified) and train. The model is baked into the image.
+# The default is the configuration the MLflow quality gate promoted to champion; override
+# with `--build-arg ANALYZER=word` to build the baseline instead.
+ARG ANALYZER=char_wb
 COPY scripts ./scripts
-RUN python scripts/download_data.py && python scripts/train.py
+RUN python scripts/download_data.py && python scripts/train.py --analyzer "$ANALYZER"
 
 # ---- Stage 2: minimal runtime image -------------------------------------------
 FROM python:3.11-slim AS runtime
