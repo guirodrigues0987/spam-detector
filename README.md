@@ -24,8 +24,8 @@ Run the tests and the linter with `pytest` and `ruff check .`.
 docker compose up --build
 ```
 
-The multi-stage image downloads the dataset (checksum-verified), trains the model in a build
-stage, and ships only the virtualenv and the trained artifact in a slim runtime image. The
+The multi-stage image downloads the dataset (checksum-verified), trains the champion model
+(character n-grams) in a build stage, and ships only the virtualenv and the trained artifact in a slim runtime image. The
 container runs as a non-root user, with a read-only filesystem, all Linux capabilities dropped
 and a `HEALTHCHECK` on `/health`. The API is then available on `http://127.0.0.1:8000`.
 Tunable at runtime through `SPAM_THRESHOLD` and `LOG_LEVEL` (see `.env.example`).
@@ -132,10 +132,13 @@ Example run history on this dataset:
 | v3 character n-grams | 0.9876 | 0.9612 | promoted (+0.0297) |
 | v4 character n-grams, `C=10` | 0.9887 | 0.9690 | rejected (+0.0011 < 0.002) |
 
-Known limitation: the Docker image still trains the word-n-gram baseline at build time
-(`scripts/train.py`), because the registry lives in a local SQLite file. Serving the registry
-champion from the image needs a shared tracking server, which is out of scope for a
-zero-cost setup. Also, comparing several candidates on one test set slightly inflates the
+The Docker image does not read the registry (it lives in a local SQLite file, and sharing it
+would need a tracking server, out of scope for a zero-cost setup). Instead it trains the
+configuration the gate promoted, character n-grams, through `scripts/train.py --analyzer
+char_wb`, so the image serves the same model as the champion above (PR-AUC 0.9876). The choice
+is a build argument: `docker build --build-arg ANALYZER=word .` builds the baseline. If a
+future run promotes a different configuration, the Dockerfile default has to be updated by hand.
+Also, comparing several candidates on one test set slightly inflates the
 winner's score; a production setup would select on a validation split and keep the test set
 for the final check.
 
