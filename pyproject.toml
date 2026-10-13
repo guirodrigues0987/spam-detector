@@ -13,6 +13,7 @@ dependencies = [
     "pandas>=2.1",
     "fastapi>=0.110",
     "uvicorn>=0.29",
+    "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +25,9 @@ dev = [
 ]
 mlops = [
     "mlflow>=3.0",
+]
+monitoring = [
+    "evidently>=0.7",
 ]
 
 [tool.setuptools.packages.find]

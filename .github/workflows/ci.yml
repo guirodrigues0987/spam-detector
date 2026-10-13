@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -e ".[dev,mlops]"
+      - run: pip install -e ".[dev,mlops,monitoring]"
       - run: pytest -q
 
   docker:

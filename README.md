@@ -138,3 +138,48 @@ champion from the image needs a shared tracking server, which is out of scope fo
 zero-cost setup. Also, comparing several candidates on one test set slightly inflates the
 winner's score; a production setup would select on a validation split and keep the test set
 for the final check.
+
+## Monitoring
+
+```bash
+docker compose --profile monitoring up --build
+```
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| API | http://127.0.0.1:8000 | `/metrics` exposes Prometheus metrics |
+| Prometheus | http://127.0.0.1:9090 | scrapes the API every 15 s |
+| Grafana | http://127.0.0.1:3000 | dashboard **Spam Detector** is provisioned from files |
+
+All ports are bound to `127.0.0.1`. Grafana's login is `admin` / `admin` unless you set
+`GRAFANA_ADMIN_PASSWORD` in `.env` (see `.env.example`). Generate some traffic to see the
+dashboard move: `python scripts/simulate_traffic.py --n 300`.
+
+**Metrics** (`src/spam_detector/metrics.py`): request count by route and status, latency
+histogram (for p50/p95/p99), predictions by class (the predicted spam rate), a histogram of
+predicted probabilities, and the loaded model version. Routes are labelled by their template,
+and unknown URLs share a single `unmatched` label, so a scanner cannot blow up the number of
+time series.
+
+**Dashboard panels:** requests/s, latency p95, predicted spam rate, 5xx rate, requests by
+status, latency percentiles, predictions by class, median predicted probability.
+
+### Drift report (Evidently)
+
+Each prediction is logged with anonymous numeric features of the message (length, word count,
+digit ratio, uppercase ratio, has-URL) and the predicted probability. **The text is never
+logged**, and these summaries cannot be turned back into it. `scripts/drift_report.py`
+compares them against the training data:
+
+```bash
+pip install -e ".[monitoring]"
+python scripts/simulate_traffic.py --n 300 --drift          # shifted traffic, for the demo
+docker compose logs api --no-log-prefix > logs/api.log
+python scripts/drift_report.py --logs logs/api.log          # writes reports/drift.html
+```
+
+On this dataset, normal traffic shows no drift (0 of 6 columns; every distance is below the
+0.1 threshold), while the shifted traffic flags all 6. Use `--fail-on-drift` to exit non-zero,
+for example from a scheduled job. The model in `ARTIFACTS_DIR` must be the one that served the
+logs, since the predicted-probability column is compared against its scores on the reference
+data.
